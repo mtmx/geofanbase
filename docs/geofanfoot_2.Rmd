@@ -1,0 +1,435 @@
+---
+title: "geofanfoot"
+author: "MG"
+date: "7/11/2018"
+#output: markdowntemplates::skeleton
+image: "logos_clubs/SRFC.png"
+weight: 0
+type: "post"
+description: "Version beta"
+tags: ["twitter", "football", "fans"]
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(sf)
+library(hrbrthemes)
+library(ggthemes)
+library(ggiraph)
+library(ggimage)
+
+
+# sorties
+grid.cpt_flw_CLUB <- fread(  "./data_sorties/grid.cpt_flw_CLUB.csv") %>% filter(nb > 0)
+grid.cpt_flw_DIST <- fread( "./data_sorties/grid.cpt_flw_DIST.csv")
+fr_grid.ctr <- fread( "./data_sorties/fr_grid.ctr.csv")
+ref.club <- fread( "./data_sorties/ref.club.csv")
+dep.s <- st_read( "./data_sorties/dep.shp") 
+cptOK_PAYS_flw_CLUB <- fread( "./data_sorties/cptOK_PAYS_flw_CLUB.csv")
+cpt_flw_CLUB <- fread( "./data_sorties/cpt_flw_CLUB.csv")
+comm.grid.liste.communes <- fread( "./data_sorties/comm.grid.liste.communes.csv") %>% select(id, NOM_COMM)
+
+
+
+# fonction pour gérer accents
+conv_accents <- function(x) {
+  x <- gsub(pattern = "è", replacement = "&egrave;", x = x)
+  x <- gsub(pattern = "é", replacement = "&eacute;", x = x)
+  x <- gsub(pattern = "ê", replacement = "&ecirc;", x = x)
+  x <- gsub(pattern = "ë", replacement = "&euml;", x = x)
+  x <- gsub(pattern = "î", replacement = "&icirc;", x = x)
+  x <- gsub(pattern = "ï", replacement = "&iuml;", x = x)
+  x <- gsub(pattern = "û", replacement = "&ucirc;", x = x)
+  x <- gsub(pattern = "ü", replacement = "&uuml;", x = x)
+  x <- gsub(pattern = "ô", replacement = "&ocirc;", x = x)
+  x <- gsub(pattern = "à", replacement = "&agrave;", x = x)
+  x <- gsub(pattern = "â", replacement = "&acirc;", x = x)
+  x <- gsub(pattern = "ç", replacement = "&ccedil;", x = x)
+  
+  x <- gsub(pattern = "è", replacement = "&Egrave;", x = x)
+  x <- gsub(pattern = "é", replacement = "&Eacute;", x = x)
+  x <- gsub(pattern = "ê", replacement = "&Ecirc;", x = x)
+  x <- gsub(pattern = "ë", replacement = "&Euml;", x = x)
+  x <- gsub(pattern = "î", replacement = "&Icirc;", x = x)
+  x <- gsub(pattern = "ï", replacement = "&Iuml;", x = x)
+  x <- gsub(pattern = "û", replacement = "&Ucirc;", x = x)
+  x <- gsub(pattern = "ü", replacement = "&Uuml;", x = x)
+  x <- gsub(pattern = "ô", replacement = "&Ocirc;", x = x)
+  x <- gsub(pattern = "à", replacement = "&Agrave;", x = x)
+  x <- gsub(pattern = "â", replacement = "&Acirc;", x = x)
+  x <- gsub(pattern = "ç", replacement = "&Ccedil;", x = x)
+  x <- gsub(pattern = "'", replacement = "&apos;", x = x)
+  
+  return(x)
+}
+
+```
+
+
+
+## Champ de l'analyse
+
+L'ensemble des clubs de Ligue 1, Ligue 2 ainsi que 3 clubs de National (Tours FC, SC Bastia et Stade Lavallois) font partie de l'analyse :
+
+
+```{r carte_liste_clubs,echo=F, message=F, warning=F ,fig.height=6,fig.width=6, include=TRUE}
+
+library(cartogram)
+
+ref.club.DORL <- cartogram_dorling(ref.club %>%
+                                     st_as_sf(coords = c("x.ctr", "y.ctr"), crs = 2154, remove = FALSE),
+                                   weight = "capacite_stade",
+                                   k = 0.5,
+                                   m_weight = 0.5,
+                                   itermax = 20) %>%
+  mutate(x.ctr.dorl = map_dbl(geometry, ~st_centroid(.x)[[1]]),
+         y.ctr.dorl = map_dbl(geometry, ~st_centroid(.x)[[2]])) 
+
+
+ggplot() +
+    # contours departements
+  geom_sf(data = dep.s, fill = "grey95", color = "grey65", size = 0.05) +
+  # images logos au lieu du stade
+  geom_image(data = ref.club.DORL %>% as.data.frame(),
+             aes(x= x.ctr.dorl, y = y.ctr.dorl, width = capacite_stade, image = logo_png), size = 0.036) +
+  #scale_size_continuous(limits = c(0.04,0.1)) +
+  scale_x_continuous(name = "") +
+  scale_y_continuous(name = "") +
+  coord_sf(crs = 2154) +
+  theme_economist_white() +
+  #theme(axis.text = element_blank(), panel.grid = element_line(size = 0), text = element_text(family="Helvetica")) 
+ theme(axis.text = element_blank(),
+     text=element_text(family="Tahoma"),
+     #legend.position = c(0.9,0.6),
+     legend.position = "none",
+     legend.text = element_text(size=3,margin = margin(t = 10)),
+     legend.spacing.x = unit(0.1, 'cm'),
+     legend.spacing.y = unit(0.3, 'cm'),
+     legend.direction = "vertical",
+     panel.grid = element_line(size = 0),
+     panel.background = element_rect(fill = "white")) #+  
+          
+```
+
+
+<br>
+
+### Etapes macro du processus :
+
+* recensement des comptes twitter officiels des 43 clubs
+* requêtage de l'API Twitter pour récupérer la liste des comptes followers des 43 clubs (20 millions de followers au total) [via rtweet]
+* requêtage de l'API Twitter pour récupérer les infos sur ces comptes (11 millions de followers distincts) [via rtweet]
+* géocodage du référentiel des localisations indiquées dans les biographies des followers [via opencage]
+* estimation de la part de bots dans les comptes followers [via https://fakers.statuspeople.com] et extrapolation
+Le nombre de followers par commune a été 
+
+* affectation d'un poids de pondération des comptes followers selon la sur/sous représentation de leur commune de localisation (référence population Insee)
+* aggrégation des statistiques communales sur une grille de carreaux de 10 km de côté
+
+<br>
+
+### Volume et territorialisation des fans :
+
+```{r graphique_pct_fans,echo=F, message=F, warning=F ,fig.height=6,fig.width=7, include=TRUE}
+
+# nuage de points nb flw vs part de flws français
+library(ggrepel)
+library(scales)
+
+ggplot() +
+  # geom_text(data = cpt_flw_CLUB %>%
+  #             left_join( cptOK_PAYS_flw_CLUB %>%
+  #                          select(initiales_club,geounit,pct.CLUB ) %>%
+  #                          filter(geounit %in% 'France'), by = "initiales_club"),
+  #           aes(x= pct.CLUB, y = nb, label = initiales_club), size = 2) +
+      # images logos au lieu du stade
+    geom_image(data = ref.club %>%
+                 left_join( cpt_flw_CLUB %>%
+                            left_join( cptOK_PAYS_flw_CLUB %>%
+                           select(initiales_club,geounit,pct.CLUB ) %>%
+                           filter(geounit %in% 'France'), by = "initiales_club")
+                           , by = "initiales_club"),
+               aes(x= pct.CLUB, y = nb, image = logo_png),
+               size = 0.04) +
+  #scale_fill_manual(name = "", values = c( "black", "orange","gold","purple","red")) +
+  theme_ipsum() +
+  scale_y_log10(name = "Nombre de fans (échelle logarithmique)", labels =function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  scale_x_continuous(name = "Parts de fans localisés en France", labels =scales::percent_format(accuracy = 2)) +
+#facet_grid(~alias_club) +
+theme(#legend.position = c(0.95, 0.5),
+  legend.position = "none",
+  text = element_text(family="Helvetica"),
+  legend.key.size = unit(0.5,"cm")) +
+  labs(
+    title = "Nombre de fans par club",
+    subtitle = "et localisation en France",
+    caption = "Source : API Twitter"
+  ) 
+  
+```
+
+
+```{r calculs, include=FALSE}
+
+#unification stats  
+grid.cpt_flw_CLUB.pct <- grid.cpt_flw_CLUB %>%
+  left_join(grid.cpt_flw_DIST %>%
+              as.data.frame() %>%
+              select(id, nb_tot = nb), by = "id") %>%
+  ungroup() %>%
+  mutate(pct.CLUB = nb /  nb_tot) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(nb)
+  
+# club max flw par carreau GRID
+grid.cpt_flw_CLUB.pct.max <- grid.cpt_flw_CLUB %>%
+  ungroup() %>%
+  group_by(id) %>%
+  filter(nb == max(nb)) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(initiales_club) %>%
+  left_join(ref.club %>%
+              select(initiales_club, col_club),
+            by = "initiales_club") %>%
+  filter(!is.na(initiales_club))
+
+# club #2 max flw par carreau GRID
+grid.cpt_flw_CLUB.pct.max.2 <- grid.cpt_flw_CLUB %>%
+  ungroup() %>%
+  arrange(desc(nb)) %>%
+  group_by(id) %>%
+  slice(2:2) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(initiales_club) %>%
+  left_join(ref.club %>%
+              select(initiales_club, col_club),
+            by = "initiales_club") %>%
+  filter(!is.na(initiales_club))
+
+
+```
+
+
+## Cartographie des aires d'influence des clubs de football {.tabset .tabset-fade}
+
+### club le plus populaire 
+
+
+```{r carte_fans_clubs_giraphe_n1,echo=F, message=F, warning=F ,fig.height=8,fig.width=10, include=TRUE}
+my_gg <-
+  ggplot() +
+    # contours departements
+  geom_sf(data = dep.s, fill = "grey95", color = "grey85", size = 0.05) +
+  geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max %>%
+               left_join(ref.club %>% as.data.frame(), by = c("initiales_club") ) %>%
+               left_join(comm.grid.liste.communes, by = "id") %>%
+                           mutate(tip = paste0("<style> div.leaflet-popup-content {width:auto!important;}</style>",
+                                               "<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">", "<br>",
+                                               "<b>","<font size=1.5 color=white>" , conv_accents(NOM_COMM),"</b>","</font>", "<br>")) %>%
+                           mutate(tip_img = paste0("<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">")) %>%
+                 filter(!is.na(initiales_club)) ,
+             aes(x = x_ctr, y = y_ctr,
+                 size = nb, 
+                 fill = initiales_club,
+                 tooltip = tip,
+                 data_id = id),
+             shape = 21,
+             color = 'grey90',
+             #color = NA,
+             stroke = 0.2,  show.legend = FALSE) +
+
+  scale_fill_manual(values = grid.cpt_flw_CLUB.pct.max %>%
+                      ungroup() %>%
+                      arrange(initiales_club) %>%
+                      filter(!is.na(initiales_club)) %>% 
+                      distinct(initiales_club,.keep_all = TRUE) %>%
+                      pull(col_club)) +
+
+  #scale_size_continuous(range = c(0.1,5 ), trans = "sqrt", limits = c(5, 32000)) +
+  scale_size_continuous(range = c(0.8,3 ), trans = "sqrt") +
+  scale_x_continuous(name = "") +
+  scale_y_continuous(name = "") +
+  coord_sf(crs = 2154, datum = NA) +
+  theme_fivethirtyeight() +
+ theme(axis.text = element_blank(),
+     text=element_text(family="Tahoma"),
+     #legend.position = c(0.9,0.6),
+     legend.position = "none",
+     legend.text = element_text(size=3,margin = margin(t = 10)),
+     legend.spacing.x = unit(0.1, 'cm'),
+     legend.spacing.y = unit(0.3, 'cm'),
+     legend.direction = "vertical",
+     panel.grid = element_line(size = 0),
+     panel.background = element_rect(fill = "white")) #+
+  # theme(axis.text = element_blank(),
+  #       panel.grid = element_line(size = 0),
+  #       panel.background = element_rect(fill = NA),
+  #       text = element_text(family="Helvetica")) #+
+  # labs(
+  #   title = "Club ayant le plus de fans",
+  #   subtitle = "par carreau de 10 km de côté",
+  #   caption = "Source : API Twitter, septembre/octobre 2018"
+  # ) 
+
+tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
+
+x <- girafe(ggobj = my_gg, width = 1, height_svg = 6 )
+girafe_options(x, 
+               opts_tooltip(css = tooltip_css),
+               opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
+               opts_tooltip(use_fill = FALSE),
+               opts_hover(css = "fill:red;r:10pt;"),
+               opts_zoom(max = 2),
+               opts_toolbar(position = "bottomleft") )
+
+
+               
+```
+
+
+
+### club en 2ème position
+
+
+```{r carte_fans_clubs_giraphe_n2,echo=F, message=F, warning=F ,fig.height=8,fig.width=10, include=TRUE}
+my_gg <-
+  ggplot() +
+    # contours departements
+  geom_sf(data = dep.s, fill = "grey95", color = "grey85", size = 0.05) +
+  geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max.2 %>%
+               left_join(ref.club %>% as.data.frame(), by = c("initiales_club") ) %>%
+               left_join(comm.grid.liste.communes, by = "id") %>%
+               filter(!is.na(initiales_club)) %>%
+                           mutate(tip = paste0("<style> div.leaflet-popup-content {width:auto!important;}</style>",
+                                               "<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">", "<br>",
+                                               "<b>","<font size=1.5 color=white>" , conv_accents(NOM_COMM),"</b>","</font>", "<br>")) %>%
+                           mutate(tip_img = paste0("<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">")),
+             aes(x = x_ctr, y = y_ctr,
+                 size = nb,
+                 fill = initiales_club,
+                 tooltip = tip,
+                 data_id = id),
+             shape = 21,
+             color = 'grey90',
+             #color = NA,
+             stroke = 0.2,  show.legend = FALSE) +
+
+  #scale_fill_distiller(palette = "Reds", direction = 1) +
+  scale_fill_manual(values = grid.cpt_flw_CLUB.pct.max.2 %>%
+                      ungroup() %>%
+                      arrange(initiales_club) %>%
+                      filter(!is.na(initiales_club)) %>% 
+                      distinct(initiales_club,.keep_all = TRUE) %>%
+                      pull(col_club)) +
+
+  #scale_size_continuous(range = c(0.1,5 ), trans = "sqrt", limits = c(5, 32000)) +
+    scale_size_continuous(range = c(0.8,3 ), trans = "sqrt") +
+
+  scale_x_continuous(name = "") +
+  scale_y_continuous(name = "") +
+  coord_sf(crs = 2154, datum = NA) +
+  theme_fivethirtyeight() +
+ theme(axis.text = element_blank(),
+     text=element_text(family="Tahoma"),
+     #legend.position = c(0.9,0.6),
+     legend.position = "none",
+     legend.text = element_text(size=3,margin = margin(t = 10)),
+     legend.spacing.x = unit(0.1, 'cm'),
+     legend.spacing.y = unit(0.3, 'cm'),
+     legend.direction = "vertical",
+     panel.grid = element_line(size = 0),
+     panel.background = element_rect(fill = "white")) #+
+  # theme(axis.text = element_blank(),
+  #       panel.grid = element_line(size = 0),
+  #       panel.background = element_rect(fill = NA),
+  #       text = element_text(family="Helvetica")) #+
+  # labs(
+  #   title = "Club ayant le plus de fans",
+  #   subtitle = "par carreau de 10 km de côté",
+  #   caption = "Source : API Twitter, septembre/octobre 2018"
+  # ) 
+
+tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
+
+x <- girafe(ggobj = my_gg, width = 1, height_svg = 6 )
+girafe_options(x, 
+               opts_tooltip(css = tooltip_css),
+               opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
+               opts_tooltip(use_fill = FALSE),
+               opts_hover(css = "fill:red;r:10pt;"),
+               opts_zoom(max = 2),
+               opts_toolbar(position = "bottomleft") )
+               
+```
+
+##
+
+### Analyse par club 
+
+Par aire urbaine et en interactif
+
+```{r dropdown_carte_densite_clubs_ggi,echo=F, message=F, warning=F ,fig.height=1,fig.width=3}
+
+library(bsselectR)
+
+clubs_plots <- paste0(list.files("./dropdown_html", pattern ="\\.html$",full.names = TRUE))
+names(clubs_plots) <- str_replace_all(clubs_plots, 
+                                      c("\\.html" = "", 
+                                        "./dropdown_html/" = ""))
+
+bsselect(clubs_plots,
+         frame_height = "700",
+         frame_width = "80%", 
+         header = FALSE,
+         align_right = TRUE,
+         width = 8,
+         height = 4,
+         box_width = "fit",
+         #style = "btn-info",
+         type = "iframe", selected = "Stade Rennais FC (SRFC)", 
+         live_search = TRUE, show_tick = TRUE)
+
+
+```
+
+
+
+
+Par canton
+
+```{r dropdown_carte_densite_clubs_ggi_CV,echo=F, message=F, warning=F ,fig.height=1,fig.width=3}
+
+library(bsselectR)
+
+clubs_plots <- paste0(list.files("./dropdown_CV_html", pattern ="\\.html$",full.names = TRUE))
+names(clubs_plots) <- str_replace_all(clubs_plots, 
+                                      c("\\.html" = "", 
+                                        "./dropdown_CV_html/" = ""))
+
+bsselect(clubs_plots,
+         frame_height = "700",
+         frame_width = "80%", 
+         header = FALSE,
+         align_right = TRUE,
+         width = 8,
+         height = 4,
+         box_width = "fit",
+         #style = "btn-info",
+         type = "iframe", selected = "Stade Rennais FC (SRFC)", 
+         live_search = TRUE, show_tick = TRUE)
+
+
+```
+
+
+
+
