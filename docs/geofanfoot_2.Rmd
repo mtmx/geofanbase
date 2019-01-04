@@ -432,4 +432,21 @@ bsselect(clubs_plots,
 
 
 
+## test 3D
+bof
+
+```{r fig.width=10, fig.height=10,echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("./img/3d_max_club_v1.png")
+grid.raster(img)
+```
+
+
+```{r fig.width=10, fig.height=10,echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("./img/3d_max_club_v2.png")
+grid.raster(img)
+```
 
