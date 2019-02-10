@@ -286,10 +286,11 @@ x <- girafe(ggobj = my_gg, width = 1, height_svg = 6 )
 girafe_options(x, 
                opts_tooltip(css = tooltip_css),
                opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
-               opts_tooltip(use_fill = FALSE),
+               opts_tooltip(use_fill = TRUE),
                opts_hover(css = "fill:red;r:10pt;"),
                opts_zoom(max = 2),
                opts_toolbar(position = "bottomleft") )
+
 
 
                
