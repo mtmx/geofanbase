@@ -109,7 +109,7 @@ grid.cpt_flw_CLUB.pct.max.2 <- grid.cpt_flw_CLUB %>%
 
 ```
 
-
+ 
 ## {.tabset .tabset-fade}
 
 ### Club le plus populaire 
