@@ -119,7 +119,7 @@ grid.cpt_flw_CLUB.pct.max.2 <- grid.cpt_flw_CLUB %>%
 my_gg <-
   ggplot() +
     # contours departements
-  geom_sf(data = dep.s, fill = "grey95", color = "grey85", size = 0.05) +
+  geom_sf(data = dep.s, fill = "grey95", color = "grey65", size = 0.05) +
   geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max %>%
                left_join(ref.club %>% as.data.frame(), by = c("initiales_club") ) %>%
                left_join(comm.grid.liste.communes, by = "id") %>%
@@ -150,7 +150,7 @@ my_gg <-
   scale_x_continuous(name = "") +
   scale_y_continuous(name = "") +
   coord_sf(crs = 2154, datum = NA) +
-  theme_ipsum_rc() +
+  #theme_ipsum_rc() +
  theme(axis.text = element_blank(),
        #grid = FALSE,
      text=element_text(family="Tahoma"),
@@ -200,7 +200,7 @@ girafe_options(x,
 my_gg <-
   ggplot() +
     # contours departements
-  geom_sf(data = dep.s, fill = "grey95", color = "grey85", size = 0.05) +
+  geom_sf(data = dep.s, fill = "grey95", color = "grey65", size = 0.05) +
   geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max.2 %>%
                left_join(ref.club %>% as.data.frame(), by = c("initiales_club") ) %>%
                left_join(comm.grid.liste.communes, by = "id") %>%
@@ -233,7 +233,7 @@ my_gg <-
   scale_x_continuous(name = "") +
   scale_y_continuous(name = "") +
   coord_sf(crs = 2154, datum = NA) +
-  theme_ipsum_rc() +
+  #theme_ipsum_rc() +
  theme(axis.text = element_blank(),
      text=element_text(family="Tahoma"),
      #legend.position = c(0.9,0.6),
