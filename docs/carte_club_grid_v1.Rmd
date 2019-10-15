@@ -8,10 +8,10 @@ library(bsselectR)
 library(tidyverse)
 library(stringi)
 
-clubs_plots <- paste0(list.files("./dropdown_grid_html", pattern ="\\.html$",full.names = TRUE))
+clubs_plots <- paste0(list.files("./dropdown_GRID_html", pattern ="\\.html$",full.names = TRUE))
 names(clubs_plots) <- str_replace_all(clubs_plots, 
                                       c("\\.html" = "", 
-                                        "./dropdown_grid_html/" = ""))
+                                        "./dropdown_GRID_html/" = ""))
 
 bsselect(clubs_plots,
          frame_height = "700",
