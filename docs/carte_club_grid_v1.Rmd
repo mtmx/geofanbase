@@ -1,0 +1,30 @@
+---
+output: html_document
+---
+
+```{r dropdown_carte_densite_clubs_ggi_CV,echo=F, message=F, warning=F ,fig.height=1,fig.width=3}
+
+library(bsselectR)
+library(tidyverse)
+library(stringi)
+
+clubs_plots <- paste0(list.files("./dropdown_grid_html", pattern ="\\.html$",full.names = TRUE))
+names(clubs_plots) <- str_replace_all(clubs_plots, 
+                                      c("\\.html" = "", 
+                                        "./dropdown_grid_html/" = ""))
+
+bsselect(clubs_plots,
+         frame_height = "700",
+         frame_width = "80%", 
+         header = FALSE,
+         align_right = TRUE,
+         width = 8,
+         height = 4,
+         box_width = "fit",
+         #style = "btn-info",
+         type = "iframe", 
+         selected = "Stade Rennais FC (SRFC)", 
+         live_search = TRUE, show_tick = TRUE)
+
+
+```
