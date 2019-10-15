@@ -3,7 +3,14 @@ output: html_document
 ---
 
 ```{r dropdown_carte_densite_clubs_ggi_CV,echo=F, message=F, warning=F ,fig.height=1,fig.width=3}
-
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(sf)
+library(hrbrthemes)
+library(ggthemes)
+library(ggiraph)
+library(ggimage)
 library(bsselectR)
 library(tidyverse)
 library(stringi)
