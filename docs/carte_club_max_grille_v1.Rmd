@@ -176,7 +176,8 @@ my_gg <-
 
 tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
 
-x <- girafe(ggobj = my_gg, width = 1, height_svg = 6)
+#x <- girafe(ggobj = my_gg, width = 1, height_svg = 6)#, height_svg = 1 )
+x <- girafe(ggobj = my_gg)
 #x <- girafe(ggobj = my_gg, width = 1, height_svg = 10)
 girafe_options(x, 
                opts_tooltip(css = tooltip_css),
@@ -258,7 +259,8 @@ my_gg <-
 
 tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
 
-x <- girafe(ggobj = my_gg, width = 1, height_svg = 6)#, height_svg = 1 )
+#x <- girafe(ggobj = my_gg, width = 1, height_svg = 6)#, height_svg = 1 )
+x <- girafe(ggobj = my_gg)
 girafe_options(x, 
                opts_tooltip(css = tooltip_css),
                opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
