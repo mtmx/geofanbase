@@ -411,7 +411,8 @@ my_gg <-
 
 tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
 
-x <- girafe(ggobj = my_gg, width = 1, height_svg = 6 )
+#x <- girafe(ggobj = my_gg, width = 1, height_svg = 6 )
+x <- girafe(ggobj = my_gg)
 x <- girafe_options(x, 
                opts_tooltip(css = tooltip_css),
                opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
@@ -492,4 +493,83 @@ geom_mark_hull(data = grid.cpt_flw_CLUB.pctsup30 ,
         text = element_text(family="Helvetica"))
 
 
+# version finale ggiraph
 
+my_gg <-
+  ggplot() +
+  # contours departements
+  geom_sf(data = dep.s, fill = "grey95", color = "grey75", size = 0.1) +
+  # geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max %>%
+  #                          left_join(ref.club %>% as.data.frame(), by = c("initiales_club") ) %>%
+  #                          left_join(comm.grid.liste.communes, by = "id") %>%
+  #                          mutate(tip = paste0("<style> div.leaflet-popup-content {width:auto!important;}</style>",
+  #                                              "<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">", "<br>",
+  #                                              "<b>","<font size=1.5 color=white>" , conv_accents(NOM_COMM),"</b>","</font>", "<br>")) %>%
+  #                          mutate(tip_img = paste0("<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">")) %>%
+  #                          filter(!is.na(initiales_club)) ,
+  geom_point_interactive(data = grid.cpt_flw_CLUB.pct.max %>% as.data.frame() %>% select(id, initiales_club, nb, x_ctr, y_ctr) %>%
+                           left_join(ref.club.epsg2154 %>% as.data.frame() %>% select(initiales_club, col_club, club_domicile_actuel, logo_png), by = c("initiales_club") ) %>%
+                           left_join(comm.grid.liste.communes %>% select(id, NOM_COMM), by = "id")  %>%
+                           mutate(tip = paste0("<style> div.leaflet-popup-content {width:auto!important;}</style>",
+                                               "<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">", "<br>",
+                                               "<b>","<font size=1.5 color=white>" , conv_accents(NOM_COMM),"</b>","</font>", "<br>")) %>%
+                           mutate(tip_img = paste0("<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">"))%>%
+                           filter(!is.na(initiales_club)),
+                         aes(x = x_ctr, y = y_ctr,
+                             size = nb, 
+                             fill = initiales_club,
+                             tooltip = tip,
+                             data_id = id),
+                         shape = 21,
+                         color = 'grey90',
+                         #color = NA,
+                         stroke = 0.2,  show.legend = FALSE) +
+  
+  scale_fill_manual(values = grid.cpt_flw_CLUB.pct.max %>%
+                      ungroup() %>%
+                      arrange(initiales_club) %>%
+                      filter(!is.na(initiales_club)) %>% 
+                      distinct(initiales_club,.keep_all = TRUE) %>%
+                      pull(col_club)) +
+  
+  #scale_size_continuous(range = c(0.1,5 ), trans = "sqrt", limits = c(5, 32000)) +
+  scale_size_continuous(range = c(0.8,3 ), trans = "sqrt") +
+  scale_x_continuous(name = "", expand = c(0,0)) +
+  scale_y_continuous(name = "", expand = c(0,0)) +
+  coord_sf(crs = 2154, datum = NA) +
+  #theme_ipsum_rc() +
+  theme(axis.text = element_blank(),
+        #grid = FALSE,
+        text=element_text(family="Tahoma"),
+        #legend.position = c(0.9,0.6),
+        # legend.position = "none",
+        legend.text = element_text(size=3,margin = margin(t = 10)),
+        legend.spacing.x = unit(0.1, 'cm'),
+        legend.spacing.y = unit(0.3, 'cm'),
+        legend.direction = "vertical",
+        panel.grid = element_line(size = 0),
+        panel.border = element_blank(),
+        panel.background = element_blank())
+#panel.background = element_rect(fill = "white")) #+
+# theme(axis.text = element_blank(),
+#       panel.grid = element_line(size = 0),
+#       panel.background = element_rect(fill = NA),
+#       text = element_text(family="Helvetica")) #+
+# labs(
+#   title = "Club ayant le plus de fans",
+#   subtitle = "par carreau de 10 km de côté",
+#   caption = "Source : API Twitter, septembre/octobre 2018"
+# ) 
+
+tooltip_css <- "background-color:white;padding:2px;font-size: 80%;color: white;opacity:0.2"
+
+x <- girafe(ggobj = my_gg, width_svg = 6.5, height_svg = 4.5)
+x <- girafe(ggobj = my_gg, width_in_pixels = 2)
+x <- girafe(ggobj = my_gg)
+girafe_options(x, 
+               opts_tooltip(css = tooltip_css),
+               opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
+               opts_tooltip(use_fill = TRUE),
+               opts_hover(css = "fill:red;stroke:black"),
+               opts_zoom(max = 1),
+               opts_toolbar(saveaspng = FALSE) )
