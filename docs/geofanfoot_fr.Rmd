@@ -97,7 +97,7 @@ Très rapidement les grandes étapes du processus :
 
 D'abord un petit rappel sur les forces en présence : le club parisien est loin devant tout le monde et son envergure internationale en fait de loin le club le plus suivi à l'étranger. L'AS Monaco a la deuxième base étrangère mais relativement peu suivi en France.
 
-```{r graphique_fanbase_france,echo=F, message=F, warning=F ,fig.height=7,fig.width=10, include=TRUE}
+```{r graphique_fanbase_france, eval=F,echo=F, message=F, warning=F ,fig.height=7,fig.width=10, include=TRUE}
 
 library(waffle)
 library(hrbrthemes)
@@ -155,6 +155,124 @@ ggplot(cptOK_FR_ETR_flw_CLUB,
 
 
 
+```{r graphique_pct_fans,eval = F, echo=F, message=F, warning=F ,fig.height=6,fig.width=7, include=TRUE}
+
+# nuage de points nb flw vs part de flws français
+library(ggrepel)
+library(scales)
+
+ggplot() +
+  # geom_text(data = cpt_flw_CLUB %>%
+  #             left_join( cptOK_PAYS_flw_CLUB %>%
+  #                          select(initiales_club,geounit,pct.CLUB ) %>%
+  #                          filter(geounit %in% 'France'), by = "initiales_club"),
+  #           aes(x= pct.CLUB, y = nb, label = initiales_club), size = 2) +
+      # images logos au lieu du stade
+    geom_image(data = ref.club %>%
+                 left_join( cpt_flw_CLUB %>%
+                            left_join( cptOK_PAYS_flw_CLUB %>%
+                           select(initiales_club,geounit,pct.CLUB ) %>%
+                           filter(geounit %in% 'France'), by = "initiales_club")
+                           , by = "initiales_club"),
+               aes(x= pct.CLUB, y = nb, image = logo_png),
+               size = 0.04) +
+  #scale_fill_manual(name = "", values = c( "black", "orange","gold","purple","red")) +
+  theme_ipsum() +
+  scale_y_log10(name = "Nombre de fans (échelle logarithmique)", labels =function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  scale_x_continuous(name = "Parts de fans localisés en France", labels =scales::percent_format(accuracy = 2)) +
+#facet_grid(~alias_club) +
+theme(#legend.position = c(0.95, 0.5),
+  legend.position = "none",
+  text = element_text(family="Helvetica"),
+  legend.key.size = unit(0.5,"cm")) +
+  labs(
+    title = "Nombre de fans par club",
+    subtitle = "et localisation en France"#,
+    #caption = "Source : API Twitter"
+  ) 
+  
+```
+
+
+
+```{r graphique_pct_fans_ggiraph,eval = T, echo=F, message=F, warning=F ,fig.height=2,fig.width=5, include=TRUE}
+
+# nuage de points nb flw vs part de flws français
+library(ggrepel)
+library(scales)
+
+my_gg <-
+ggplot() +
+  geom_image(data = ref.club %>%
+               left_join( cpt_flw_CLUB %>%
+                            left_join( cptOK_PAYS_flw_CLUB %>%
+                                         select(initiales_club,geounit,pct.CLUB ) %>%
+                                         filter(geounit %in% 'France'), by = "initiales_club")
+                          , by = "initiales_club"),
+             aes(x= 1-pct.CLUB, y = nb, image = logo_png),
+             size = 0.03) +
+  geom_point_interactive(data = ref.club %>%
+                           left_join( cpt_flw_CLUB %>%
+                                        left_join( cptOK_PAYS_flw_CLUB %>%
+                                                     select(initiales_club,geounit,pct.CLUB ) %>%
+                                                     filter(geounit %in% 'France'), by = "initiales_club")
+                                      , by = "initiales_club") %>%
+                           mutate(tip = paste0("<style> div.leaflet-popup-content {width:auto!important;}</style>",
+                                               "<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">", "<br>",
+                                               "<b>","<font size=1.5 color=white>" , conv_accents(club_domicile_actuel),"</b>","</font>", "<br>")) %>%
+                           mutate(tip_img = paste0("<img src = ",paste0('"' ,logo_png,'"'), " height=\"30\"width=\"30\">")) %>%
+                           filter(!is.na(initiales_club)) ,
+                         aes(x= 1-pct.CLUB, y = nb,
+                             #size = nb, 
+                             #fill = initiales_club,
+                             tooltip = tip,
+                             data_id = initiales_club),
+                         shape = 21,
+                         color = "grey95",
+                         #color = NA,
+                         fill = "black",
+                         alpha = 0.01,
+                         size =4,
+                         stroke = 0.2, 
+                         show.legend = FALSE) +
+  
+  #scale_fill_manual(name = "", values = c( "black", "orange","gold","purple","red")) +
+  #theme_ipsum() +
+  theme_minimal() +
+  scale_y_continuous(name = "Nombre de followers du compte officiel du club sur Twitter", 
+                     breaks = c(100000,500000,2000000,6000000),
+                     labels =function(x) format(x, big.mark = " ", scientific = FALSE)) +
+  scale_x_continuous(name = "Part des followers localisés à l'étranger",
+                     labels =scales::percent_format(accuracy = 2)) +
+  #facet_grid(~alias_club) +
+  theme(#legend.position = c(0.95, 0.5),
+    legend.position = "none",
+    #text = element_text(family="Roboto", size = 5),
+    axis.text = element_text(family="Roboto", size = 2.5),
+    axis.title = element_text(family="Roboto", size = 3.5),
+    legend.key.size = unit(0.5,"cm")) +
+  coord_flip() #+
+  # labs(
+  #   title = "Nombre de fans par club"#,
+  #   subtitle = "et localisation en France",
+  #   caption = "Source : API Twitter"
+  # ) 
+
+tooltip_css <- "background-color:white;padding:0px;font-size: 80%;color: white;opacity:0.2"
+
+#x <- girafe(ggobj = my_gg)
+#x
+x <- girafe(ggobj = my_gg, height_svg  = 3, width_svg = 4)
+girafe_options(x, 
+               opts_tooltip(css = tooltip_css),
+               opts_tooltip(offx = -40, offy = -30, use_cursor_pos = TRUE),
+               opts_tooltip(use_fill = TRUE),
+               opts_hover(css = "fill:grey90;stroke:grey90;opacity:0.8"),
+               opts_zoom(max = 1),
+               opts_toolbar(saveaspng = FALSE) )
+
+```              
+               
 ## Cartographie des aires d'influence des clubs de football {.tabset .tabset-fade}
 
 La carte qui suit permet d’afficher le club français qui compte le plus de fans dans chaque zone de 10 km de côté, la commune indiquée étant la plus peuplée de ce carré. Seuls ceux comptant plus de 10 twittos (ajustements compris, cf. méthodo) sont indiqués donc de nombreuses zones peu denses ne sont pas renseignées. 
