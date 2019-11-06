@@ -1,0 +1,140 @@
+---
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(data.table)
+library(sf)
+library(hrbrthemes)
+library(ggthemes)
+library(ggiraph)
+library(ggimage)
+
+
+# sorties
+grid.cpt_flw_CLUB <- fread(  "./data_sorties/grid.cpt_flw_CLUB.csv") %>% filter(nb > 0)
+grid.cpt_flw_DIST <- fread( "./data_sorties/grid.cpt_flw_DIST.csv")
+fr_grid.ctr <- fread( "./data_sorties/fr_grid.ctr.csv")
+ref.club <- fread( "./data_sorties/ref.club.csv")
+dep.s <- st_read( "./data_sorties/dep.shp") 
+cptOK_PAYS_flw_CLUB <- fread( "./data_sorties/cptOK_PAYS_flw_CLUB.csv")
+cpt_flw_CLUB <- fread( "./data_sorties/cpt_flw_CLUB.csv")
+comm.grid.liste.communes <- fread( "./data_sorties/comm.grid.liste.communes.csv") %>% select(id, NOM_COMM)
+
+
+
+# fonction pour gérer accents
+conv_accents <- function(x) {
+  x <- gsub(pattern = "è", replacement = "&egrave;", x = x)
+  x <- gsub(pattern = "é", replacement = "&eacute;", x = x)
+  x <- gsub(pattern = "ê", replacement = "&ecirc;", x = x)
+  x <- gsub(pattern = "ë", replacement = "&euml;", x = x)
+  x <- gsub(pattern = "î", replacement = "&icirc;", x = x)
+  x <- gsub(pattern = "ï", replacement = "&iuml;", x = x)
+  x <- gsub(pattern = "û", replacement = "&ucirc;", x = x)
+  x <- gsub(pattern = "ü", replacement = "&uuml;", x = x)
+  x <- gsub(pattern = "ô", replacement = "&ocirc;", x = x)
+  x <- gsub(pattern = "à", replacement = "&agrave;", x = x)
+  x <- gsub(pattern = "â", replacement = "&acirc;", x = x)
+  x <- gsub(pattern = "ç", replacement = "&ccedil;", x = x)
+  
+  x <- gsub(pattern = "è", replacement = "&Egrave;", x = x)
+  x <- gsub(pattern = "é", replacement = "&Eacute;", x = x)
+  x <- gsub(pattern = "ê", replacement = "&Ecirc;", x = x)
+  x <- gsub(pattern = "ë", replacement = "&Euml;", x = x)
+  x <- gsub(pattern = "î", replacement = "&Icirc;", x = x)
+  x <- gsub(pattern = "ï", replacement = "&Iuml;", x = x)
+  x <- gsub(pattern = "û", replacement = "&Ucirc;", x = x)
+  x <- gsub(pattern = "ü", replacement = "&Uuml;", x = x)
+  x <- gsub(pattern = "ô", replacement = "&Ocirc;", x = x)
+  x <- gsub(pattern = "à", replacement = "&Agrave;", x = x)
+  x <- gsub(pattern = "â", replacement = "&Acirc;", x = x)
+  x <- gsub(pattern = "ç", replacement = "&Ccedil;", x = x)
+  x <- gsub(pattern = "'", replacement = "&apos;", x = x)
+  
+  return(x)
+}
+
+```
+
+
+
+
+```{r calculs, include=FALSE}
+
+#unification stats  
+grid.cpt_flw_CLUB.pct <- grid.cpt_flw_CLUB %>%
+  left_join(grid.cpt_flw_DIST %>%
+              as.data.frame() %>%
+              select(id, nb_tot = nb), by = "id") %>%
+  ungroup() %>%
+  mutate(pct.CLUB = nb /  nb_tot) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(nb)
+  
+# club max flw par carreau GRID
+grid.cpt_flw_CLUB.pct.max <- grid.cpt_flw_CLUB %>%
+  ungroup() %>%
+  group_by(id) %>%
+  filter(nb == max(nb)) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(initiales_club) %>%
+  left_join(ref.club %>%
+              select(initiales_club, col_club),
+            by = "initiales_club") %>%
+  filter(!is.na(initiales_club))
+
+# club #2 max flw par carreau GRID
+grid.cpt_flw_CLUB.pct.max.2 <- grid.cpt_flw_CLUB %>%
+  ungroup() %>%
+  arrange(desc(nb)) %>%
+  group_by(id) %>%
+  slice(2:2) %>%
+  left_join(fr_grid.ctr %>%
+              as.data.frame() %>%
+              select(id, x_ctr, y_ctr), by = "id") %>%
+  arrange(initiales_club) %>%
+  left_join(ref.club %>%
+              select(initiales_club, col_club),
+            by = "initiales_club") %>%
+  filter(!is.na(initiales_club))
+
+
+```
+
+ 
+```{r dropdown_carte_densite_clubs_ggi_CV,echo=F, message=F, warning=F ,fig.height=1,fig.width=3}
+
+library(bsselectR)
+library(tidyverse)
+library(stringi)
+
+clubs_plots <- paste0(list.files("./dropdown_GRID_html", pattern ="\\.html$",full.names = TRUE))
+names(clubs_plots) <- str_replace_all(clubs_plots, 
+                                      c("\\.html" = "", 
+                                        "./dropdown_GRID_html/" = ""))
+
+bsselect(clubs_plots,
+         frame_height = "480",
+         frame_width = "100%",
+         header = F,
+         align_right = FALSE,
+         width = 8,
+         height = 8,
+         box_width = "auto",
+         #style = "btn-info",
+         type = "iframe",
+         selected = "Stade Rennais FC (SRFC)",
+         live_search = TRUE, show_tick = TRUE)
+
+# bsselect(clubs_plots,
+#          type = "iframe", 
+#          align_right = FALSE)
+
+
+```
